@@ -904,7 +904,17 @@
                 return { isAdmin: data };
             }
             else {
-                const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ ...payload, source: 'liff' }) });
+                // 🔥 打包一份帶有新分隊專屬資料庫鑰匙的包裹
+                const payloadWithDB = {
+                    ...payload,
+                    source: 'liff',
+                    dbUrl: SUPABASE_URL,      // 帶著新網址去
+                    dbKey: SUPABASE_ANON_KEY  // 帶著新鑰匙去
+                };
+                const res = await fetch(GAS_API_URL, { 
+                    method: "POST", 
+                    body: JSON.stringify(payloadWithDB) 
+                });
                 return await res.json();
             }
         }
