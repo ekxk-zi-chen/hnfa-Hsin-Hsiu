@@ -1267,7 +1267,7 @@
             const subcat = document.getElementById('eq-sub-category').value;
             const model = document.getElementById('eq-model').value;
             // 💡 [新增] 抓取圖片欄位的值
-            const image = document.getElementById('eq-image').value; 
+            const image = document.getElementById('eq-image').value.replace(/,/g, '\n');
             const loc = document.getElementById('eq-location').value;
             const total = parseInt(document.getElementById('eq-total').value);
             const custodian = document.getElementById('eq-custodian').value;
@@ -1396,7 +1396,7 @@
                 document.getElementById('eq-category').value = eq.category || "";
                 document.getElementById('eq-sub-category').value = eq.sub_category || ""; // 🔥 填入舊細項
                 document.getElementById('eq-model').value = eq.model || "";
-                document.getElementById('eq-image').value = eq.image || ""; // 💡 [新增這行] 填入舊圖片 ID
+                document.getElementById('eq-image').value = eq.image ? eq.image.replace(/\n/g, ',') : "";
                 document.getElementById('eq-location').value = eq.location || "";
                 document.getElementById('eq-total').value = eq.total_qty || 1;
                 document.getElementById('eq-custodian').value = eq.custodian || ""; // 填入舊資料
@@ -1427,7 +1427,7 @@
                 category: document.getElementById('eq-category').value,
                 subCategory: document.getElementById('eq-sub-category').value, // 🔥
                 model: document.getElementById('eq-model').value,
-                image: document.getElementById('eq-image').value, // 💡 [新增這行] 把圖片 ID 寄出去
+                image: document.getElementById('eq-image').value.replace(/,/g, '\n'),
                 location: document.getElementById('eq-location').value,
                 custodian: document.getElementById('eq-custodian').value, // 🔥 加入這行
                 totalQty: document.getElementById('eq-total').value
