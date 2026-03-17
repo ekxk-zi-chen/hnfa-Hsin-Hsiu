@@ -880,7 +880,7 @@
             if (rpcActions.includes(action)) {
                 let rpcParams = {};
                 if (action === 'get_equipment_list') rpcParams = { p_category_filter: payload.category || 'All' };
-                else if (action === 'manage_equipment') rpcParams = { p_user_id: userId, p_action: payload.mode, p_eq_id: payload.eqId || null, p_name: payload.name || '', p_category: payload.category || '', p_sub_category: payload.subCategory || '', p_model: payload.model || '', p_location: payload.location || '', p_custodian: payload.custodian || '', p_total_qty: payload.totalQty || 0, p_user_name: displayName };
+                else if (action === 'manage_equipment') rpcParams = { p_user_id: userId, p_action: payload.mode, p_eq_id: payload.eqId || null, p_name: payload.name || '', p_category: payload.category || '', p_sub_category: payload.subCategory || '', p_model: payload.model || '', p_location: payload.location || '', p_custodian: payload.custodian || '', p_total_qty: payload.totalQty || 0, p_user_name: displayName, p_image: payload.image || '' };
                 else if (action === 'borrow_equipment') rpcParams = { p_eq_id: payload.eqId, p_borrower_name: payload.borrower, p_qty: payload.qty, p_user_name: displayName, p_note: payload.note || '', p_note2: payload.note2 || '', p_user_id: userId };
                 else if (action === 'return_equipment') rpcParams = { p_loan_id: payload.loanId, p_return_qty: payload.returnQty, p_user_name: displayName, p_user_id: userId };
                 else if (action === 'get_loan_history') rpcParams = { p_user_id: userId, p_eq_id: payload.eqId || null };
