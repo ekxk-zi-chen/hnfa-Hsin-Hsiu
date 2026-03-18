@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>新秀管理系統</title>
+    <title>花蓮特搜戰情中心</title>
 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a1a1a">
 
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="新秀分隊裝備管理">
+    <meta name="apple-mobile-web-app-title" content="花搜戰情">
     <link rel="apple-touch-icon" href="rescue192.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -416,7 +416,7 @@
             ⚙️
         </button>
 
-        <h1 class="text-xl font-bold text-green-400 mb-1">🚒 新秀裝備管理系統</h1>
+        <h1 class="text-xl font-bold text-green-400 mb-1">🚒 花蓮特搜行動系統</h1>
 
         <div class="relative flex justify-center items-center h-6">
             <div class="flex items-center gap-2">
@@ -667,9 +667,10 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <label class="text-gray-400 w-20">總量:</label>
-                    <input type="number" id="eq-total" class="input-dark flex-1" value="1" min="1">
+                <div class="flex gap-2 items-center">
+                    <input type="text" id="eq-property-number" class="input-dark flex-1 border-blue-800" placeholder="財產編號 (選填)">
+                    <label class="text-gray-400 shrink-0 text-sm">總量:</label>
+                    <input type="number" id="eq-total" class="input-dark w-20 text-center" value="1" min="1">
                 </div>
             </div>
 
@@ -685,7 +686,7 @@
                             <tr>
                                 <th>名稱</th>
                                 <th>細項</th>
-                                <th>規格</th>
+                                <th>財編</th> <th>規格</th>
                                 <th>位置</th>
                                 <th>保管人</th>
                                 <th>量</th>
@@ -875,8 +876,8 @@
         const GAS_API_URL = "https://line-bot-liff-lovat.vercel.app/api/webhook"; // 保留給 PDF 跟 AI 用的
 
         // 🔥 1. 初始化 Supabase 引擎 (請填入你的專案網址跟 ANON KEY)
-        const SUPABASE_URL = 'https://vvewbmsiuanphptuddfg.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZXdibXNpdWFucGhwdHVkZGZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2Njc2ODIsImV4cCI6MjA4OTI0MzY4Mn0.WzxawWLOJwprcsvcWNjaL685CzYoh5iwS7bOW2S_KKk';
+        const SUPABASE_URL = 'https://gltzwtqcrdpdumzitbib.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsdHp3dHFjcmRwZHVteml0YmliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNzQyODcsImV4cCI6MjA3Mjk1MDI4N30.6svHYwJUM8aZF71pY0N3Wx4KiaSMN-GiibyLGZDsygE';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // <--- 改名了
 
         let userId = "", userEmail = "", displayName = "", equipmentCache = [], currentCustodian = 'All', isExportMode = false, selectedItems = new Set(), loaderInterval;
@@ -911,7 +912,7 @@
             if (rpcActions.includes(action)) {
                 let rpcParams = {};
                 if (action === 'get_equipment_list') rpcParams = { p_category_filter: payload.category || 'All' };
-                else if (action === 'manage_equipment') rpcParams = { p_user_id: userId, p_action: payload.mode, p_eq_id: payload.eqId || null, p_name: payload.name || '', p_category: payload.category || '', p_sub_category: payload.subCategory || '', p_model: payload.model || '', p_location: payload.location || '', p_custodian: payload.custodian || '', p_total_qty: payload.totalQty || 0, p_user_name: displayName, p_image: payload.image || '' };
+                else if (action === 'manage_equipment') rpcParams = { p_user_id: userId, p_action: payload.mode, p_eq_id: payload.eqId || null, p_name: payload.name || '', p_category: payload.category || '', p_sub_category: payload.subCategory || '', p_model: payload.model || '', p_location: payload.location || '', p_custodian: payload.custodian || '', p_total_qty: payload.totalQty || 0, p_user_name: displayName, p_image: payload.image || '' , p_property_number: payload.propertyNumber || ''};
                 else if (action === 'borrow_equipment') rpcParams = { p_eq_id: payload.eqId, p_borrower_name: payload.borrower, p_qty: payload.qty, p_user_name: displayName, p_note: payload.note || '', p_note2: payload.note2 || '', p_user_id: userId };
                 else if (action === 'return_equipment') rpcParams = { p_loan_id: payload.loanId, p_return_qty: payload.returnQty, p_user_name: displayName, p_user_id: userId };
                 else if (action === 'get_loan_history') rpcParams = { p_user_id: userId, p_eq_id: payload.eqId || null };
@@ -935,18 +936,7 @@
                 return { isAdmin: data };
             }
             else {
-                // 🔥 打包一份帶有新分隊專屬資料庫鑰匙的包裹
-                const payloadWithDB = {
-                    ...payload,
-                    source: 'liff',
-                    dbUrl: SUPABASE_URL,      // 帶著新網址去
-                    dbKey: SUPABASE_ANON_KEY,  // 帶著新鑰匙去
-                    teamName: '新秀分隊' // 👈 [新增這行] 這裡寫死該分隊的名字！如果是你們分隊就寫 '特搜大隊'
-                };
-                const res = await fetch(GAS_API_URL, { 
-                    method: "POST", 
-                    body: JSON.stringify(payloadWithDB) 
-                });
+                const res = await fetch(GAS_API_URL, { method: "POST", body: JSON.stringify({ ...payload, source: 'liff' }) });
                 return await res.json();
             }
         }
@@ -1298,7 +1288,8 @@
             const subcat = document.getElementById('eq-sub-category').value;
             const model = document.getElementById('eq-model').value;
             // 💡 [新增] 抓取圖片欄位的值
-            const image = document.getElementById('eq-image').value.replace(/,/g, '\n');
+            const image = document.getElementById('eq-image').value.replace(/,/g, '\n'); 
+            const propNum = document.getElementById('eq-property-number').value.trim(); // 💡 新增這行
             const loc = document.getElementById('eq-location').value;
             const total = parseInt(document.getElementById('eq-total').value);
             const custodian = document.getElementById('eq-custodian').value;
@@ -1306,18 +1297,18 @@
             if (!name || !cat) return alert("名稱和分類必填！");
 
             // 💡 [新增] 把 image 一併塞進暫存包裹裡
-            pendingBatchItems.push({ name, category: cat, subCategory: subcat, model, image: image, location: loc, custodian: custodian, totalQty: total }); 
+            pendingBatchItems.push({ name, category: cat, subCategory: subcat, model, image: image, propertyNumber: propNum, location: loc, custodian: custodian, totalQty: total });
 
             document.getElementById('eq-name').value = "";
             document.getElementById('eq-model').value = "";
             document.getElementById('eq-image').value = ""; // 💡 [新增] 暫存後清空圖片欄位
             document.getElementById('eq-custodian').value = "";
+            document.getElementById('eq-property-number').value = ""; // 💡 新增這行
             document.getElementById('eq-name').focus();
 
             renderPreBatchList();
             renderDatalists();
         }
-
 
         // ==========================================
         // 🖼️ 圖片防呆上傳系統 (多張排隊升級版)
@@ -1347,48 +1338,60 @@
         }
 
         function previewImageSelection(event) {
-            // 💡 [修改] 把選到的檔案轉成陣列
             const files = Array.from(event.target.files);
             if (files.length === 0) return;
 
-            // 防呆：限制一次最多 5 張，避免等太久或 GAS 當掉
             if (files.length > 5) {
-                alert("為了確保穩定，一次最多只能上傳 5 張照片喔！");
+                alert("一次最多只能上傳 5 張照片喔！");
                 event.target.value = '';
                 return;
             }
 
-            const validFiles = [];
-            for (let file of files) {
-                if (file.size > 5 * 1024 * 1024) {
-                    alert(`圖片 [${file.name}] 太大囉！已被剔除 (請選擇 5MB 以下)。`);
-                    continue;
-                }
-                validFiles.push(file);
-            }
-
-            if (validFiles.length === 0) return;
-
-            pendingUploadFiles = validFiles; // 存入暫存陣列
-
-            // 清空預覽區並隱藏 placeholder
             const previewContainer = document.getElementById('upload-preview-container');
-            previewContainer.innerHTML = ''; 
+            previewContainer.innerHTML = '';
 
-            // 💡 [修改] 跑迴圈把每一張預覽圖畫出來
-            pendingUploadFiles.forEach(file => {
+            pendingUploadFiles = []; // ⚠️ 改這裡
+
+            files.forEach(file => {
+
+                if (!file || file.size === 0) {
+                    alert(`圖片 [${file.name}] 讀取失敗（iOS問題）`);
+                    return;
+                }
+
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`圖片 [${file.name}] 太大囉！`);
+                    return;
+                }
+
                 const reader = new FileReader();
+
                 reader.onload = function(e) {
+
+                    const arrayBuffer = e.target.result;
+
+                    // ✅ 重建一個「乾淨的 file」
+                    const newFile = new File(
+                        [arrayBuffer],
+                        file.name || "image.jpg",
+                        { type: file.type || "image/jpeg" }
+                    );
+
+                    // 👉 存這個新的
+                    pendingUploadFiles.push(newFile);
+
+                    // 預覽
                     const img = document.createElement('img');
-                    img.src = e.target.result;
+                    img.src = URL.createObjectURL(newFile);
                     img.className = 'w-20 h-20 object-cover rounded border border-gray-600 shadow-sm';
                     previewContainer.appendChild(img);
                 };
-                reader.readAsDataURL(file);
+
+                // ⚠️ 這裡改用 ArrayBuffer（很重要）
+                reader.readAsArrayBuffer(file);
             });
 
-            // 解鎖確認按鈕
-            document.getElementById('btn-confirm-upload').disabled = false; 
+            document.getElementById('btn-confirm-upload').disabled = false;
         }
 
         async function confirmImageUpload() {
@@ -1429,7 +1432,7 @@
                         fileName: file.name,
                         mimeType: base64DataObj.mimeType,
                         folderPath: targetPath, // 💡 [修改] 這裡的參數名稱改成 folderPath 傳給後端
-                        unit: '新秀' // 💡 [新增] 告訴後端：我是新秀！
+                        unit: '特搜' 
                     });
 
                     if (res.success) {
@@ -1464,7 +1467,8 @@
                 }
             }
         }
-        
+
+
         // 🔥 [修改] 渲染暫存表格 (多一欄)
         function renderPreBatchList() {
             const tbody = document.getElementById('pre-batch-list');
@@ -1479,6 +1483,7 @@
                     <td class="pr-3 text-indigo-300">${item.custodian || '-'}</td>
                     <td class="pr-3 text-yellow-400 font-bold">${item.totalQty}</td>
                     <td class="text-right"><button onclick="removePreBatch(${index})" class="text-red-400 px-2 py-1">✕</button></td>
+                    <td class="pr-3 text-gray-400">${item.propertyNumber || '-'}</td>
                 </tr>
                 `;
             }).join('');
@@ -1505,12 +1510,13 @@
                         p_eq_id: "",
                         name: item.name,
                         category: item.category,
-                        subCategory: item.subCategory,
+                        subCategory: item.subCategory, // 🔥
                         model: item.model,
-                        image: item.image, // 💡 [新增這行] 把剛剛存的圖片 ID 送給後端
+                        image: item.image,
                         location: item.location,
-                        custodian: item.custodian,
-                        totalQty: item.totalQty
+                        custodian: item.custodian, // 🔥
+                        totalQty: item.totalQty,
+                        propertyNumber: item.propertyNumber // 💡 新增這行
                     })
                 );
                 await Promise.all(promises);
@@ -1561,10 +1567,10 @@
             document.getElementById('eq-category').value = "";
             document.getElementById('eq-sub-category').value = ""; // 🔥 清空細項
             document.getElementById('eq-model').value = "";
-            document.getElementById('eq-image').value = ""; // 💡 [新增這行] 清空圖片欄位
             document.getElementById('eq-location').value = "";
             document.getElementById('eq-total').value = 1;
             document.getElementById('eq-custodian').value = ""; // 清空保管人欄位
+            document.getElementById('eq-property-number').value = ""; // 💡 新增清空
 
             if (mode === 'update' && id) {
                 const eq = equipmentCache.find(e => e.id === id) || {};
@@ -1577,7 +1583,8 @@
                 document.getElementById('eq-location').value = eq.location || "";
                 document.getElementById('eq-total').value = eq.total_qty || 1;
                 document.getElementById('eq-custodian').value = eq.custodian || ""; // 填入舊資料
-
+                document.getElementById('eq-property-number').value = eq.property_number || ""; // 💡 新增讀取舊資料
+                
 
                 document.getElementById('btn-delete-eq').classList.remove('hidden');
                 document.getElementById('btn-save-edit').classList.remove('hidden');
@@ -1607,7 +1614,8 @@
                 image: document.getElementById('eq-image').value.replace(/,/g, '\n'),
                 location: document.getElementById('eq-location').value,
                 custodian: document.getElementById('eq-custodian').value, // 🔥 加入這行
-                totalQty: document.getElementById('eq-total').value
+                totalQty: document.getElementById('eq-total').value,
+                propertyNumber: document.getElementById('eq-property-number').value // 💡 新增這行
             };
             if (!p.name) return alert("名稱必填");
             toggleLoader(true);
