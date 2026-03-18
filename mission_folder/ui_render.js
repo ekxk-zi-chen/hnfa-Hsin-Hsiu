@@ -178,11 +178,16 @@ function renderEquipmentList() {
             const editBtn = isUserAdmin ? `<button onclick="openEditModal('update', '${eq.id}')" class="text-gray-500 p-1">⚙️</button>` : '';
             const subCatBadge = eq.sub_category ? `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded ml-2">${eq.sub_category}</span>` : '';
             const custodianBadge = eq.custodian ? `<span class="bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-700">🛡️保管: ${eq.custodian}</span>` : '';
-
+            // 💡 [新增] 製作財編的小標籤
+            const propBadge = eq.property_number ? `<span class="bg-gray-700 text-yellow-300 px-1.5 py-0.5 rounded mr-1 font-mono text-[10px] shadow-inner">#${eq.property_number}</span>` : '';
+            
             html += `<div class="flex items-start bg-gray-800 p-4 rounded-lg mb-3 border-l-4 ${isEmpty ? "border-red-500" : (isFull ? "border-green-500" : "border-blue-500")}">
                             ${checkHtml}<div class="flex-1"><div class="flex justify-between"><div>
                                 <h3 class="font-bold text-white text-lg flex items-center flex-wrap gap-1">${eq.name} ${subCatBadge}</h3>
-                                <div class="flex gap-2 text-xs text-gray-400 mt-1 flex-wrap"><span>${eq.model || '-'}</span><span>📍${eq.location || '-'}</span>${custodianBadge}</div>
+                                <div class="flex gap-2 text-xs text-gray-400 mt-1 flex-wrap">
+                                    <span>${propBadge}${eq.model || '-'}</span>
+                                    <span>📍${eq.location || '-'}</span>${custodianBadge}
+                                </div>
                             </div><div class="flex gap-2"><button onclick="fetchItemHistory('${eq.id}')" class="text-blue-400 p-1">📜</button>${editBtn}</div></div>
                             <div class="flex justify-between items-end mt-3">${statusBadge}<div class="flex flex-col items-end gap-2"><div>${borrowBtn}${repairBtn}</div>${toggleBtnHtml}</div></div>${loansHtml}</div></div>`;
         }
