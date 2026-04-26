@@ -1,6 +1,5 @@
 {
-  "latestVersion": "1.0.2",
+  "latestVersion": "1.2.1",
   "apkUrl": "update.apk",
-  "releaseNote": "修正相簿多選功能與排版優化",
-  "forceUpdate": false
+  "releaseNote": "這次新增可以內建更新"
 }
