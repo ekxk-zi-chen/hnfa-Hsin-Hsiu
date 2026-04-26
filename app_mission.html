@@ -966,7 +966,7 @@
         let signaturePad;
         let currentSigTarget = ''; // 'checker' 或 'borrower'
         let signatures = { checker: null, borrower: null };
-        let isMobileMode = false; // 💡 預設電腦版 (不翻轉)
+        let isMobileMode = true; // 💡 預設手機版 (翻轉)
 
         // 👇 移植這段：全域狀態白板
         const AppState = {
