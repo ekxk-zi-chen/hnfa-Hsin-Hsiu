@@ -24,6 +24,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
     <link rel="stylesheet" href="mission_folder/tour_guide_style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <style>
         /* =========================================
            1. 全局佈局 (釋放原生滾動，讓手機畫面最大化)
@@ -872,6 +874,68 @@
         </div>
     </div>
 
+    <div id="export-settings-modal" class="modal-overlay hidden z-[70]">
+        <div class="bg-gray-800 p-5 rounded-lg w-full max-w-sm border border-purple-500 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-4">📊 匯出報表設定</h3>
+            <div class="mb-4">
+                <label class="block text-gray-400 text-xs mb-1 font-bold">借出事由</label>
+                <input type="text" id="export-reason-input" class="input-dark w-full" placeholder="例如：雪山搜救、裝備清點">
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-6">
+                <button onclick="openSignaturePad('checker')" class="bg-gray-700 p-3 rounded-lg border border-gray-600 text-center active:scale-95 transition-transform">
+                    <div class="text-xs text-gray-400 mb-1">清點人員簽名</div>
+                    <div id="status-sig-checker" class="text-sm font-bold text-red-500">❌ 未簽名</div>
+                </button>
+                <button onclick="openSignaturePad('borrower')" class="bg-gray-700 p-3 rounded-lg border border-gray-600 text-center active:scale-95 transition-transform">
+                    <div class="text-xs text-gray-400 mb-1">借用人簽名</div>
+                    <div id="status-sig-borrower" class="text-sm font-bold text-red-500">❌ 未簽名</div>
+                </button>
+            </div>
+            <div class="flex gap-2 border-t border-gray-700 pt-3">
+                <button onclick="closeModal('export-settings-modal')" class="flex-1 bg-gray-600 text-white py-2 rounded-lg font-bold">取消</button>
+                <button onclick="executeFinalExport()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold">確認匯出 PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="signature-modal" class="fixed inset-0 bg-black z-[100] hidden flex-row overflow-hidden">
+        
+        <div id="sig-control-panel" class="w-24 h-full bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-between py-6 shrink-0 transition-all">
+            
+            <button onclick="closeSignaturePad()" class="sig-btn bg-gray-700 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl active:scale-90 rotate-90-mod">
+                ✕
+            </button>
+
+            <button onclick="toggleSignatureRotation()" class="sig-btn bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl active:scale-90 shadow-lg shadow-indigo-900/50 rotate-90-mod">
+                🔄
+            </button>
+
+            <div class="sig-btn-text text-center rotate-90-mod">
+                <span id="sig-pad-title" class="text-white font-bold tracking-widest text-base block">簽名區域</span>
+                <span id="sig-mode-label" class="text-yellow-500 text-[10px]">手機模式</span>
+            </div>
+
+            <button onclick="signaturePad.clear()" class="sig-btn bg-gray-700 text-gray-300 px-3 py-2 rounded-lg text-xs font-bold active:scale-90 rotate-90-mod">
+                重寫
+            </button>
+
+            <button onclick="saveSignature()" class="sig-btn bg-green-600 text-white w-14 h-14 rounded-full flex items-center justify-center font-bold text-sm shadow-xl active:scale-95 rotate-90-mod">
+                完成
+            </button>
+        </div>
+
+        <div id="canvas-wrapper" class="flex-1 h-full bg-white relative">
+            <div id="sig-guide-line" class="absolute w-[1px] h-[80%] border-l-2 border-dashed border-gray-300 pointer-events-none top-[10%] right-[30%] z-0"></div>
+            <canvas id="signature-canvas" class="w-full h-full touch-none relative z-10"></canvas>
+        </div>
+    </div>
+
+    <style>
+        /* 旋轉動畫類別 (你的版本) */
+        .rotate-90-mod { transform: rotate(-90deg) !important; }
+        .sig-btn, .sig-btn-text { transition: transform 0.3s ease; }
+    </style>
+
     <datalist id="note-suggestions">
         <option value="雪訓">
         <option value="繩索訓練">
@@ -898,6 +962,11 @@
         let isDetailsListView = false;
         // 🔥 用來記錄「已經看過且下載完成」的圖片 ID
         let loadedImageCache = new Set();
+
+        let signaturePad;
+        let currentSigTarget = ''; // 'checker' 或 'borrower'
+        let signatures = { checker: null, borrower: null };
+        let isMobileMode = false; // 💡 預設電腦版 (不翻轉)
 
         // 👇 移植這段：全域狀態白板
         const AppState = {
@@ -1562,42 +1631,153 @@
             }
         }
 
-        async function confirmExport() {
-            if (selectedItems.size === 0) return alert("請選擇裝備");
+        // 啟動畫板
+        function openSignaturePad(role) {
+            currentSigTarget = role;
+            // 更新標題文字
+            document.getElementById('sig-pad-title').innerText = (role === 'checker' ? '清點人員' : '領用人') + ' 簽名';
             
-            // 🌟 戰術修復：利用原生彈窗要求填寫事由
-            const inputReason = prompt("📝 請輸入本次報表的「借出事由」\n(例如：雪地訓練、裝備清點、山域搜救)：", "一般勤務使用");
+            document.getElementById('signature-modal').classList.remove('hidden');
+            document.getElementById('signature-modal').classList.add('flex');
             
-            // 💡 防呆：如果使用者按了「取消」，就直接中斷，不要產出 PDF
-            if (inputReason === null) {
-                return; 
+            const canvas = document.getElementById('signature-canvas');
+            // 💡 關鍵：必須設定畫布的實體寬高等於它被 CSS 撐開後的寬高
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            if (!signaturePad) {
+                signaturePad = new SignaturePad(canvas, {
+                    backgroundColor: 'rgba(255, 255, 255, 0)',
+                    penColor: 'black',
+                    minWidth: 2, // 💡 筆跡加粗
+                    maxWidth: 5
+                });
+            } else {
+                signaturePad.clear();
+            }
+        }
+
+        function clearSignature() { signaturePad.clear(); }
+        function closeSignaturePad() { document.getElementById('signature-modal').classList.add('hidden'); }
+
+        // 🔄 切換旋轉模式
+        function toggleSignatureRotation() {
+            isMobileMode = !isMobileMode;
+            
+            const modal = document.getElementById('signature-modal');
+            const panel = document.getElementById('sig-control-panel');
+            const wrapper = document.getElementById('canvas-wrapper');
+            const btns = document.querySelectorAll('.sig-btn, .sig-btn-text');
+            const guideLine = document.getElementById('sig-guide-line');
+            const modeLabel = document.getElementById('sig-mode-label');
+
+            if (isMobileMode) {
+                // 📱 切換回你「完美的」手機模式
+                modal.className = "fixed inset-0 bg-black z-[100] flex flex-row overflow-hidden";
+                panel.className = "w-24 h-full bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-between py-6 shrink-0";
+                wrapper.className = "flex-1 h-full bg-white relative";
+                
+                // 按鈕轉回 -90 度
+                btns.forEach(el => el.classList.add('rotate-90-mod'));
+                // 輔助線變垂直
+                guideLine.className = "absolute w-[1px] h-[80%] border-l-2 border-dashed border-gray-300 pointer-events-none top-[10%] right-[30%] z-0";
+                
+                modeLabel.innerText = "手機模式";
+                modeLabel.classList.replace('text-gray-500', 'text-yellow-500');
+            } else {
+                // 💻 切換到「電腦模式」
+                modal.className = "fixed inset-0 bg-black z-[100] flex flex-col overflow-hidden";
+                // 面板變上方橫條，橫向排列
+                panel.className = "w-full h-20 bg-gray-900 border-b border-gray-700 flex flex-row items-center justify-between px-10 py-2 shrink-0";
+                wrapper.className = "flex-1 w-full bg-white relative";
+                
+                // 按鈕轉正
+                btns.forEach(el => el.classList.remove('rotate-90-mod'));
+                // 輔助線變水平
+                guideLine.className = "absolute h-[1px] w-[80%] border-t-2 border-dashed border-gray-300 pointer-events-none left-[10%] bottom-[30%] z-0";
+                
+                modeLabel.innerText = "電腦模式";
+                modeLabel.classList.replace('text-yellow-500', 'text-gray-500');
             }
 
-            const borrowReason = inputReason.trim();
+            // ⚠️ 重新計算畫布解析度 (必做，否則筆跡座標會歪)
+            setTimeout(() => {
+                const canvas = document.getElementById('signature-canvas');
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                if(signaturePad) signaturePad.clear(); 
+            }, 50);
+        }
 
-            toggleLoader(true, "產生報表中...");
+        // 🚀 最終儲存 (完美融合你的旋轉邏輯)
+        function saveSignature() {
+            if (signaturePad.isEmpty()) return alert("請簽名後再確認！");
+            
+            const canvas = document.getElementById('signature-canvas');
+            let finalBase64 = '';
+
+            if (isMobileMode) {
+                // 📱 手機模式：直接套用你給的那段「完美翻轉 180 修正」代碼
+                const rotatedCanvas = document.createElement('canvas');
+                rotatedCanvas.width = canvas.height;
+                rotatedCanvas.height = canvas.width;
+                const ctx = rotatedCanvas.getContext('2d');
+                
+                ctx.translate(rotatedCanvas.width, 0); 
+                ctx.rotate(Math.PI / 2);
+                ctx.drawImage(canvas, 0, 0);
+                
+                finalBase64 = rotatedCanvas.toDataURL('image/png');
+            } else {
+                // 💻 電腦模式：使用者由左往右簽，直接出圖，不翻轉
+                finalBase64 = signaturePad.toDataURL('image/png');
+            }
+
+            signatures[currentSigTarget] = finalBase64;
+            const statusEl = document.getElementById(`status-sig-${currentSigTarget}`);
+            statusEl.innerText = "✅ 已簽名";
+            statusEl.classList.replace('text-red-500', 'text-green-400');
+            
+            closeSignaturePad();
+        }
+
+        async function confirmExport() {
+            if (selectedItems.size === 0) return alert("請選擇裝備");
+            // 重置簽名狀態
+            signatures = { checker: null, borrower: null };
+            document.getElementById('status-sig-checker').className = 'text-sm font-bold text-red-500';
+            document.getElementById('status-sig-checker').innerText = "❌ 未簽名";
+            document.getElementById('status-sig-borrower').className = 'text-sm font-bold text-red-500';
+            document.getElementById('status-sig-borrower').innerText = "❌ 未簽名";
+            
+            document.getElementById('export-settings-modal').classList.remove('hidden');
+            document.getElementById('export-settings-modal').classList.add('flex');
+        }
+
+        // 🚀 最終執行匯出
+        async function executeFinalExport() {
+            const reason = document.getElementById('export-reason-input').value.trim();
+            
+            toggleLoader(true, "簽名打包並產生 PDF 中...");
             try {
                 const res = await callGasApi({ 
                     action: 'export_equipment_report', 
                     userId, 
                     eqIds: Array.from(selectedItems),
-                    teamName: '新秀分隊',  // ⚠️ 新秀專屬名稱！
-                    reason: borrowReason   // 👈 確實把剛剛打的字送出去！
+                    teamName: '新秀分隊', 
+                    reason: reason,
+                    // 💡 [新增] 傳送兩組 Base64 簽名
+                    checkerSig: signatures.checker,
+                    borrowerSig: signatures.borrower
                 });
                 
                 if (res.url) {
-                    // 🌟 智慧判斷：
-                    // iOS / 電腦版用 window.open 很穩。
-                    // 但 Android WebView 討厭開新視窗，所以我們用 location.href 直接撞上去，
-                    // 故意觸發等一下要在 Android 底層寫的「攔截網」！
+                    closeModal('export-settings-modal');
                     const isAndroid = /Android/i.test(navigator.userAgent);
-                    if (isAndroid) {
-                        window.location.href = res.url; 
-                    } else {
-                        window.open(res.url, '_blank');
-                    }
+                    if (isAndroid) window.location.href = res.url; 
+                    else window.open(res.url, '_blank');
                 } else {
-                    alert("匯出失敗，請稍後再試。");
+                    alert("匯出失敗: " + res.message);
                 }
             } catch (e) {
                 alert(e.message);
