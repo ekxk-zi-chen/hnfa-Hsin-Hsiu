@@ -790,6 +790,14 @@
                     </label>
                 </div>
             </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-300 text-sm font-bold mb-3">🛠️ 系統維護</label>
+                <button onclick="launchAppUpdate()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
+                    <span>🔄</span> 檢查並更新系統版本
+                </button>
+                <p class="text-[10px] text-gray-500 text-center mt-2">※ 僅限 Android 平板專屬功能</p>
+            </div>
             
             <button onclick="saveSettings()" class="w-full bg-gray-700 hover:bg-gray-600 border border-gray-500 text-white py-2.5 rounded-lg font-bold tracking-widest transition-all shadow-lg active:scale-95">儲存設定</button>
         </div>
@@ -2325,7 +2333,24 @@
             document.getElementById('details-image').classList.add('hidden');
         }
 
+        function launchAppUpdate() {
+            // 🌟 自動抓取當前網頁的路徑並組合出 APK 網址
+            // 例如網頁是 https://.../test/app_mission.html
+            // 它會自動變成 https://.../test/update.apk
+            const currentPath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+            const apkUrl = `${currentPath}/update.apk`;
 
+            console.log("正在發射導彈，目標載點：", apkUrl);
+
+            if (window.AndroidUpdater && typeof window.AndroidUpdater.startAppUpdate === 'function') {
+                alert("⬇️ 系統更新已啟動！\n請留意平板上方下載進度，完成後會自動彈出安裝視窗。");
+                window.AndroidUpdater.startAppUpdate(apkUrl);
+            } else {
+                if (confirm("偵測到非 App 環境。要直接下載 APK 檔案嗎？")) {
+                    window.location.href = apkUrl;
+                }
+            }
+        }
     </script>
     <script src="splash/hnfa_splash.js"></script>
     <script src="mission_folder/tour_guide_script.js"></script>
@@ -2354,6 +2379,7 @@
             });
         });
     </script>
+    
 </body>
 
 </html>
