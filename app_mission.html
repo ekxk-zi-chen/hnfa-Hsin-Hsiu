@@ -1862,9 +1862,11 @@
             renderExportPhotoPreview();
         }
 
-        // 🌟 執行最終匯出 (二階段授權版)
+        // 🌟 執行最終匯出 (100% 破解 Safari 手勢防護版)
         async function executeFinalExport() {
             const reason = document.getElementById('export-reason-input').value.trim();
+            // 抓出目前被點擊的匯出按鈕
+            const exportBtn = document.querySelector("button[onclick='executeFinalExport()']") || document.querySelector("button[onclick='handleNativeShare()']");
             
             toggleLoader(true, "打包並產生 PDF 中...");
             try {
@@ -1880,19 +1882,18 @@
                 });
                 
                 if (res.success && res.base64) {
-                    // 暫存資料到全域變數，供下一個按鈕使用
+                    // 將檔案存入全域變數
                     window.currentPdfData = {
                         base64: res.base64,
                         fileName: res.fileName
                     };
 
-                    // 關閉原本的設定窗
-                    closeModal('export-settings-modal');
-                    
-                    // 🚀 關鍵：顯示一個「檔案已就緒」的提示窗或按鈕
-                    // 這裡我們直接用一個 Swal (如果您有裝) 或簡單的自訂提示
-                    showSharePrompt(); 
-
+                    // 🚨 核心黑科技：不關閉視窗，直接把「匯出按鈕」變成「分享按鈕」！
+                    if (exportBtn) {
+                        exportBtn.innerText = "📤 報表就緒，點擊分享！";
+                        exportBtn.className = "flex-1 bg-green-600 text-white py-2 rounded-lg font-bold animate-pulse shadow-[0_0_15px_rgba(22,163,74,0.6)] transition-all";
+                        exportBtn.onclick = handleNativeShare; // 將按鈕的動作換成「分享」
+                    }
                 } else {
                     alert("匯出失敗: " + (res.message || "未知的系統錯誤"));
                 }
@@ -1902,40 +1903,41 @@
                 toggleLoader(false);
             }
         }
-        // 顯示分享提示 (可以用您喜歡的 UI 樣式)
-        function showSharePrompt() {
-            // 這裡簡單用 confirm 做演示，建議改用漂亮的 Modal
-            if (confirm("✅ 報表製作完成！\n是否立即開啟分享面板傳送給隊員？")) {
-                handleNativeShare(); // 這裡由使用者點擊觸發，100% 成功
-            }
-        }
 
-        // 真正的分享執行動作
+        // 真正的分享執行動作 (純淨點擊，iOS 絕對過關)
         async function handleNativeShare() {
-            if (!window.currentPdfData) return;
+            if (!window.currentPdfData) return alert("找不到報表資料！");
+            
+            const exportBtn = document.querySelector("button[onclick='handleNativeShare()']");
+            if (exportBtn) exportBtn.innerText = "⏳ 處理中...";
 
-            const { base64, fileName } = window.currentPdfData;
-            const blob = b64toBlob(base64, 'application/pdf');
-            const file = new File([blob], fileName, { type: 'application/pdf' });
+            try {
+                const { base64, fileName } = window.currentPdfData;
+                const blob = b64toBlob(base64, 'application/pdf');
+                const file = new File([blob], fileName, { type: 'application/pdf' });
 
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         files: [file],
                         title: '新秀分隊裝備報表',
                         text: '請查收最新裝備清單'
                     });
-                } catch (err) {
-                    console.log("使用者取消分享", err);
+                    closeModal('export-settings-modal'); // 分享成功後，才關閉視窗
+                } else {
+                    // 電腦版或不支援時，直接無情下載
+                    const blobUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = blobUrl;
+                    link.download = fileName;
+                    link.click();
+                    URL.revokeObjectURL(blobUrl);
+                    closeModal('export-settings-modal'); 
                 }
-            } else {
-                // 電腦版自動轉下載
-                const blobUrl = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = fileName;
-                link.click();
-                URL.revokeObjectURL(blobUrl);
+            } catch (err) {
+                console.log("分享失敗或取消", err);
+                if (exportBtn) {
+                    exportBtn.innerText = "📤 再次點擊分享"; // 讓隊員可以反悔重按
+                }
             }
         }
 
