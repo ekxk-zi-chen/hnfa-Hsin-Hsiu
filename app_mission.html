@@ -1862,11 +1862,10 @@
             renderExportPhotoPreview();
         }
 
-        // 🌟 執行最終匯出 (智能雙軌版：iOS 分享 / 安卓下載)
+        // 🌟 執行最終匯出 (極簡分流版：iOS 綠色按鈕分享 / 安卓直接開網址)
         async function executeFinalExport() {
             const reason = document.getElementById('export-reason-input').value.trim();
-            // 抓出目前被點擊的匯出按鈕
-            const exportBtn = document.querySelector("button[onclick='executeFinalExport()']") || document.querySelector("button[onclick='handleHybridExport()']");
+            const exportBtn = document.querySelector("button[onclick='executeFinalExport()']") || document.querySelector("button[onclick='handleIOSShare()']");
             
             toggleLoader(true, "打包並產生 PDF 中...");
             try {
@@ -1881,38 +1880,52 @@
                     photos: exportPhotosBase64 
                 });
                 
-                if (res.success && res.base64) {
-                    window.currentPdfData = {
-                        base64: res.base64,
-                        fileName: res.fileName
-                    };
-
-                    // 🚨 偵測是否為 Apple 裝置 (包含 iPhone, iPad)
+                if (res.success && res.url) { 
+                    // 偵測裝置屬性
                     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                    const isAndroid = /Android/i.test(navigator.userAgent);
 
-                    // 依據裝置切換綠色按鈕的文字與功能
-                    if (exportBtn) {
-                        exportBtn.innerText = isIOS ? "📤 報表就緒，點擊分享！" : "📥 報表就緒，點擊下載！";
-                        exportBtn.className = "flex-1 bg-green-600 text-white py-2 rounded-lg font-bold animate-pulse shadow-[0_0_15px_rgba(22,163,74,0.6)] transition-all";
-                        exportBtn.onclick = handleHybridExport; // 指向我們新的雙軌函數
+                    if (isIOS && res.base64) {
+                        // 🍎 iOS 路線：變成綠色按鈕，等待純淨點擊來觸發 Share API
+                        window.currentPdfData = {
+                            base64: res.base64,
+                            fileName: res.fileName || "裝備報表.pdf"
+                        };
+
+                        if (exportBtn) {
+                            exportBtn.innerText = "📤 報表就緒，點擊分享！";
+                            exportBtn.className = "flex-1 bg-green-600 text-white py-2 rounded-lg font-bold animate-pulse shadow-[0_0_15px_rgba(22,163,74,0.6)] transition-all";
+                            exportBtn.onclick = handleIOSShare; 
+                        }
+                        // 這裡要先關閉動畫，讓蘋果隊員可以按鈕
+                        toggleLoader(false); 
+                    } else {
+                        // 🤖 安卓/電腦路線：最原始、最單純的直接開啟 Google Drive 網址！
+                        closeModal('export-settings-modal');
+                        
+                        if (isAndroid) {
+                            window.location.href = res.url; // 安卓直接跳轉
+                        } else {
+                            window.open(res.url, '_blank'); // 電腦開新分頁
+                        }
+                        
+                        toggleLoader(false); 
                     }
                 } else {
                     alert("匯出失敗: " + (res.message || "未知的系統錯誤"));
+                    toggleLoader(false);
                 }
             } catch (e) {
                 alert("系統通訊錯誤：" + e.message);
-            } finally {
                 toggleLoader(false);
             }
         }
 
-        // 🚀 雙軌處理函數 (Apple 走分享，其餘走下載)
-        async function handleHybridExport() {
+        // 🍎 iOS 專屬分享執行動作
+        async function handleIOSShare() {
             if (!window.currentPdfData) return alert("找不到報表資料！");
             
-            const exportBtn = document.querySelector("button[onclick='handleHybridExport()']");
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            
+            const exportBtn = document.querySelector("button[onclick='handleIOSShare()']");
             if (exportBtn) exportBtn.innerText = "⏳ 處理中...";
 
             try {
@@ -1920,41 +1933,25 @@
                 const blob = b64toBlob(base64, 'application/pdf');
                 const file = new File([blob], fileName, { type: 'application/pdf' });
 
-                // 🍎 路線 A：如果是 iOS 且支援分享 API
-                if (isIOS && navigator.canShare && navigator.canShare({ files: [file] })) {
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         files: [file],
                         title: '新秀分隊裝備報表',
                         text: '請查收最新裝備清單'
                     });
                     closeModal('export-settings-modal'); 
-                } 
-                // 🤖 路線 B：安卓或電腦版，一律無情下載
-                else {
-                    const blobUrl = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = blobUrl;
-                    link.download = fileName;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    setTimeout(() => {
-                        URL.revokeObjectURL(blobUrl);
-                        closeModal('export-settings-modal'); 
-                    }, 200);
+                } else {
+                    alert("您的裝置暫不支援原生分享。");
                 }
             } catch (err) {
-                console.log("操作失敗或取消", err);
+                console.log("分享失敗或取消", err);
                 if (exportBtn) {
-                    // 如果他按了取消，按鈕文字變回來讓他可以重按
-                    exportBtn.innerText = isIOS ? "📤 再次點擊分享" : "📥 再次點擊下載"; 
+                    exportBtn.innerText = "📤 再次點擊分享"; 
                 }
             }
         }
 
-
-        // 🛠️ 輔助函數：將 Base64 轉換回實體的 Blob 檔案
+        // 🛠️ 輔助函數：將 Base64 轉換回實體的 Blob 檔案 (保留給 iOS 使用)
         function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
             const byteCharacters = atob(b64Data);
             const byteArrays = [];
