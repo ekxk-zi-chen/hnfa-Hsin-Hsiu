@@ -1862,11 +1862,11 @@
             renderExportPhotoPreview();
         }
 
-        // 🌟 執行最終匯出 (打包加入 photos)
+        // 🌟 執行最終匯出 (升級為原生分享面板版)
         async function executeFinalExport() {
             const reason = document.getElementById('export-reason-input').value.trim();
             
-            toggleLoader(true, "簽名打包並產生 PDF 中...");
+            toggleLoader(true, "打包並產生 PDF 中...");
             try {
                 const res = await callGasApi({ 
                     action: 'export_equipment_report', 
@@ -1876,24 +1876,65 @@
                     reason: reason,
                     checkerSig: signatures.checker,
                     borrowerSig: signatures.borrower,
-                    photos: exportPhotosBase64 // 👈 把壓縮好的照片陣列送出！
+                    photos: exportPhotosBase64 
                 });
                 
-                if (res.url) {
+                if (res.success && res.base64) {
                     closeModal('export-settings-modal');
-                    const isAndroid = /Android/i.test(navigator.userAgent);
-                    if (isAndroid) window.location.href = res.url; 
-                    else window.open(res.url, '_blank');
+                    
+                    // 🚀 1. 把後端傳來的 Base64 變回 PDF 檔案實體
+                    const blob = b64toBlob(res.base64, 'application/pdf');
+                    const file = new File([blob], res.fileName, { type: 'application/pdf' });
+
+                    // 🚀 2. 判斷手機是否支援「原生分享 (Share API)」
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            // 📱 喚出 iOS / Android 的原生分享面板 (可選 LINE、Airdrop、存到檔案)
+                            await navigator.share({
+                                files: [file],
+                                title: '新秀分隊裝備報表',
+                                text: '請查收最新裝備清單'
+                            });
+                        } catch (shareErr) {
+                            console.log("使用者取消分享或分享失敗", shareErr);
+                        }
+                    } else {
+                        // 💻 情況 B：電腦版或不支援的原生分享，改用「隱形下載大法」 (絕對不會被彈窗攔截！)
+                        const blobUrl = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = res.fileName;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(blobUrl);
+                    }
                 } else {
-                    alert("匯出失敗: " + res.message);
+                    alert("匯出失敗: " + (res.message || "未知的系統錯誤"));
                 }
             } catch (e) {
-                alert(e.message);
+                alert("系統通訊錯誤：" + e.message);
             } finally {
                 toggleLoader(false);
             }
         }
 
+        // 🛠️ 輔助函數：將 Base64 轉換回實體的 Blob 檔案
+        function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
+            const byteCharacters = atob(b64Data);
+            const byteArrays = [];
+            for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                const slice = byteCharacters.slice(offset, offset + sliceSize);
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                byteArrays.push(byteArray);
+            }
+            return new Blob(byteArrays, { type: contentType });
+        }
+        //////////以上是簽名與照片上傳的相關邏輯//////////
 
         // 🔥 [修改] 加入 subCategory 處理
         function openEditModal(mode, id) {
