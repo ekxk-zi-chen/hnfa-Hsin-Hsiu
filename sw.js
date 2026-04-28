@@ -68,7 +68,7 @@ self.addEventListener('notificationclick', function(event) {
 // ==========================================
 // 2. PWA 離線快取設定 (戰備儲糧機制)
 // ==========================================
-const CACHE_NAME = 'sar-cache-v4'; // 版本號更新，強制刷新快取
+const CACHE_NAME = 'sar-cache-v5'; // 版本號更新，強制刷新快取
 
 // 設定要快取的檔案名單 (包含新寫的 web_push.js)
 const urlsToCache = [
