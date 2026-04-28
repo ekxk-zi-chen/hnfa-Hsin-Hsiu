@@ -1878,6 +1878,7 @@
                     borrowerSig: signatures.borrower,
                     photos: exportPhotosBase64 
                 });
+                console.log("📡 收到後端包裹內容:", res); // 👈 加上這行
                 
                 if (res.success && res.base64) {
                     closeModal('export-settings-modal');
