@@ -1862,7 +1862,7 @@
             renderExportPhotoPreview();
         }
 
-        // 🌟 執行最終匯出 (升級為原生分享面板版)
+        // 🌟 執行最終匯出 (二階段授權版)
         async function executeFinalExport() {
             const reason = document.getElementById('export-reason-input').value.trim();
             
@@ -1878,38 +1878,21 @@
                     borrowerSig: signatures.borrower,
                     photos: exportPhotosBase64 
                 });
-                console.log("📡 收到後端包裹內容:", res); // 👈 加上這行
                 
                 if (res.success && res.base64) {
+                    // 暫存資料到全域變數，供下一個按鈕使用
+                    window.currentPdfData = {
+                        base64: res.base64,
+                        fileName: res.fileName
+                    };
+
+                    // 關閉原本的設定窗
                     closeModal('export-settings-modal');
                     
-                    // 🚀 1. 把後端傳來的 Base64 變回 PDF 檔案實體
-                    const blob = b64toBlob(res.base64, 'application/pdf');
-                    const file = new File([blob], res.fileName, { type: 'application/pdf' });
+                    // 🚀 關鍵：顯示一個「檔案已就緒」的提示窗或按鈕
+                    // 這裡我們直接用一個 Swal (如果您有裝) 或簡單的自訂提示
+                    showSharePrompt(); 
 
-                    // 🚀 2. 判斷手機是否支援「原生分享 (Share API)」
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                        try {
-                            // 📱 喚出 iOS / Android 的原生分享面板 (可選 LINE、Airdrop、存到檔案)
-                            await navigator.share({
-                                files: [file],
-                                title: '新秀分隊裝備報表',
-                                text: '請查收最新裝備清單'
-                            });
-                        } catch (shareErr) {
-                            console.log("使用者取消分享或分享失敗", shareErr);
-                        }
-                    } else {
-                        // 💻 情況 B：電腦版或不支援的原生分享，改用「隱形下載大法」 (絕對不會被彈窗攔截！)
-                        const blobUrl = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = blobUrl;
-                        link.download = res.fileName;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(blobUrl);
-                    }
                 } else {
                     alert("匯出失敗: " + (res.message || "未知的系統錯誤"));
                 }
@@ -1919,6 +1902,43 @@
                 toggleLoader(false);
             }
         }
+        // 顯示分享提示 (可以用您喜歡的 UI 樣式)
+        function showSharePrompt() {
+            // 這裡簡單用 confirm 做演示，建議改用漂亮的 Modal
+            if (confirm("✅ 報表製作完成！\n是否立即開啟分享面板傳送給隊員？")) {
+                handleNativeShare(); // 這裡由使用者點擊觸發，100% 成功
+            }
+        }
+
+        // 真正的分享執行動作
+        async function handleNativeShare() {
+            if (!window.currentPdfData) return;
+
+            const { base64, fileName } = window.currentPdfData;
+            const blob = b64toBlob(base64, 'application/pdf');
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: '新秀分隊裝備報表',
+                        text: '請查收最新裝備清單'
+                    });
+                } catch (err) {
+                    console.log("使用者取消分享", err);
+                }
+            } else {
+                // 電腦版自動轉下載
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = fileName;
+                link.click();
+                URL.revokeObjectURL(blobUrl);
+            }
+        }
+
 
         // 🛠️ 輔助函數：將 Base64 轉換回實體的 Blob 檔案
         function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
